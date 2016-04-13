@@ -39,32 +39,44 @@ int main( int argc, char** argv )
   //Modulo
   magnitude(grad_x, grad_y, module);
 
+
   //Orientacion
   phase(grad_x, grad_y, orientation);
 
   /* Metodo directo. Se comprueban todos los puntos de la imagen y si su modulo es mayor
    * que un umbral, se crea su recta con su orientacion para intersectar con la linea del
    * horizonte. */
-  int umbral = 95;
-  for(int i=0; i<src.rows; i++){
-	  for(int j=0; j<src.cols; j++){
-		  double mod = module.at<float>(i,j);
+  int umbral = 100;
+  threshold(module, module, umbral, 255, CV_THRESH_BINARY);
+
+  float err = 0.1;
+  for(int i=0; i<module.rows; i++){
+	  for(int j=0; j<module.cols; j++){
+		  float mod = module.at<float>(i,j);
+		  float orient = orientation.at<float>(i,j);
 		  if(mod > umbral){
-			  double orient = orientation.at<float>(i,j);
-			  double pendiente = tan(orient);
+			  //Filtro para lineas verticales y horizontales
+			  if(!(orient<err) && !(orient>2*M_PI-err) && !(orient<M_PI/2+err && orient>M_PI/2-err)
+					  && !(orient<M_PI*3/2+err && orient>M_PI*3/2-err)
+					  && !(orient<M_PI+err && orient>M_PI-err)){
 
-			  //Se construyen las ecuaciones de las dos rectas
-			  //y=m(x-x0)+y0
-			  //y=src.rows/2
-			  //m(x-x0)+y0 = src.rows/2
-			  //mx-mx0+y0 = src.rows/2
-			  //mx = src.rows/2 + mx0 - y0
-			  //x = src.rows/2 + mx0 - y0
-			  int votado = src.rows/2 + pendiente*i - j;
-			  if(votado>=0 && votado<=src.rows){
-				  horizont.at<uchar>(votado) = horizont.at<uchar>(votado) + 1;
+				  double pendiente = tan(orient);
+				  //Se construyen las ecuaciones de las dos rectas
+				  //y=m(x-x0)+y0
+				  //y=src.rows/2
+				  //m(x-x0)+y0 = src.rows/2
+				  //mx-mx0+y0 = src.rows/2
+				  //mx = src.rows/2 + mx0 - y0
+				  //x = src.rows/2 + mx0 - y0
+				  int votado = src.rows/2 + pendiente*i - j;
+				  cout << "Voto " << votado <<endl;
+				  if(votado>=0 && votado<=src.cols){
+					  horizont.at<uchar>(votado) = horizont.at<uchar>(votado) + 1;
+				  }
+			  }else{
+				  module.at<float>(i,j) = 0.0;
+				  cout << "BORRANDO ";
 			  }
-
 		  }
 	  }
   }
