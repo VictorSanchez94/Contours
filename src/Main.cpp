@@ -8,119 +8,114 @@
 using namespace cv;
 using namespace std;
 
-/** @function main */
 int main( int argc, char** argv )
 {
 
-  Mat src, src_gray;
-  Mat grad;
-
-  /// Load an image
-  src = imread( argv[1] );
-
-  //Create candidates matrix
-  Mat horizont = Mat::zeros(1,src.cols, CV_32F);
-
-  if( !src.data )
-  { return -1; }
-
-  GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
-
-  Mat grad_x, grad_y, grad_x2, grad_y2, module, orientation, orientation2;
-  Mat grad_x_impr, grad_y_impr, module_impr, orientation_impr;
-
-  //Gradiente X
-  Sobel( src, grad_x, CV_32F, 1, 0, 3 );
-
-  //Gradiente Y
-  Sobel( src, grad_y2, CV_32F, 0, 1, 3 );
-  grad_y = - grad_y2;
-
-  //Modulo
-  magnitude(grad_x, grad_y, module);
+	Mat src, grad_x, grad_y, module, orientation;
+	Mat grad_y2, grad_x2, orientation2, final;
+	Mat grad_x_impr, grad_y_impr, module_impr, orientation_impr;
 
 
-  //Orientacion
-  phase(grad_x, grad_y, orientation);
+	src = imread( argv[1], 0 );
+	if( !src.data )
+	{ return -1; }
 
-  /* Metodo directo. Se comprueban todos los puntos de la imagen y si su modulo es mayor
-   * que un umbral, se crea su recta con su orientacion para intersectar con la linea del
-   * horizonte. */
-  int umbral = 100;
-  threshold(module, module, umbral, 255, CV_THRESH_BINARY);
+	src.copyTo(final);
+	cvtColor(final, final, CV_GRAY2BGR);
 
-  float err = 0.1;
-  for(int i=0; i<module.rows; i++){
-	  for(int j=0; j<module.cols; j++){
-		  float mod = module.at<float>(i,j);
-		  float orient = orientation.at<float>(i,j);
-		  if(mod > umbral){
-			  //Filtro para lineas verticales y horizontales
-			  if(!(orient<err) && !(orient>2*M_PI-err) && !(orient<M_PI/2+err && orient>M_PI/2-err)
-					  && !(orient<M_PI*3/2+err && orient>M_PI*3/2-err)
-					  && !(orient<M_PI+err && orient>M_PI-err)){
+	Mat horizont = Mat::zeros(1,src.cols, CV_8U);
+	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
 
-				  double pendiente = tan(orient);
-				  //Se construyen las ecuaciones de las dos rectas
-				  //y=m(x-x0)+y0
-				  //y=src.rows/2
-				  //m(x-x0)+y0 = src.rows/2
-				  //mx-mx0+y0 = src.rows/2
-				  //mx = src.rows/2 + mx0 - y0
-				  //x = src.rows/2 + mx0 - y0
-				  int votado = src.rows/2 + pendiente*i - j;
-				  cout << "Voto " << votado <<endl;
-				  if(votado>=0 && votado<=src.cols){
-					  horizont.at<uchar>(votado) = horizont.at<uchar>(votado) + 1;
-				  }
-			  }else{
-				  module.at<float>(i,j) = 0.0;
-				  cout << "BORRANDO ";
-			  }
-		  }
-	  }
-  }
+	//Gradiente X
+	Sobel( src, grad_x, CV_64F, 1, 0, 3 );
 
-  //Se mira a ver cual ha sido el punto del horizonte mas votado
-  int masVotado = 2;
-  for (int i=0; i<horizont.cols; i++){
-	  if(horizont.at<uchar>(i) > horizont.at<uchar>(masVotado)){
-		  masVotado = i;
-	  }
-  }
+	//Gradiente Y
+	Sobel( src, grad_y2, CV_64F, 0, 1, 3 );
+	grad_y = grad_y2;
 
-  Mat final;
-  src.copyTo(final);
-  for(int i = -10; i<10; i++){
-	  final.at<float>(final.rows/2+i, masVotado) = 254;
-	  final.at<float>(final.rows/2, masVotado+i) = 254;
-  }
+	//Modulo
+	magnitude(grad_x, grad_y, module);
+
+	//Orientacion
+	phase(grad_x, grad_y, orientation);
 
 
-  //Se convierten las matrices para que se puedan mostrar por pantalla
-  grad_x2 = grad_x/2 + 128;
-  grad_y2 = grad_y/2 + 128;
-  orientation2 = orientation/3.1415*128;
-  grad_x2.convertTo(grad_x_impr, CV_8U);
-  grad_y2.convertTo(grad_y_impr, CV_8U);
-  module.convertTo(module_impr, CV_8U);
-  orientation2.convertTo(orientation_impr, CV_8U);
+	/*Metodo directo. Se comprueban todos los puntos de la imagen y si su modulo es mayor
+	 * que un umbral, se crea su recta con su orientacion para intersectar con la linea del
+	 * horizonte.
+	 */
+	int umbral = 95;
+	float err = 0.1;
+	for(int i=0; i<module.rows; i++){
+		for(int j=0; j<module.cols; j++){
+			double mod = module.at<double>(i,j);
+			double orient = orientation.at<double>(i,j);
+			if(mod>umbral){
+				//Filtro para eliminar lineas verticales y horizontales
+				/*if((!(orient<(M_PI/2)+err) || !(orient>(M_PI/2)-err)) &&      //PI/2
+						(!(orient<(3*M_PI/2)+err) || !(orient>(3*M_PI/2)-err)) &&	//3*PI/2
+						(!(orient<(M_PI)+err) || !(orient>(M_PI)-err)) &&			//PI
+						(orient>0+err)	&& (orient<(2*M_PI)-err)		 			//0 y 2*PI (por separado)
+				){*/
+					//double pendiente = tan(orient);
+					double pendiente = sin(orient)/cos(orient);
+
+					int votado = i+((module.rows/2 - j)/pendiente);
+					if(votado>0 && votado<horizont.cols){
+						horizont.at<uchar>(votado) = horizont.at<uchar>(votado) + 1;
+						circle(final, Point(j,i), 1, Scalar(0,0,255));
+						//line(final, Point(j,i), Point(votado,src.rows/2), Scalar(255,255,0));
+						/*imshow( "Original", src );
+		    		  	  waitKey(0);
+		    		  	  cvDestroyAllWindows();
+		    		  	  cout << orient*180/M_PI << endl;*/
+
+					}else{
+						cout << "Fuera de rango" << " " << pendiente << " " << votado << endl;
+						circle(final, Point(j,i), 1, Scalar(0,0,0));
+					}
+				//}
+
+			}
+		}
+	}
+
+	//Se mira a ver cual ha sido el punto del horizonte mas votado
+	int masVotado = 0;
+	for (int i=0; i<horizont.cols; i++){
+		circle(final, Point(i,module.rows/2), 1, Scalar(255,0,0));
+		if(horizont.at<uchar>(i) > horizont.at<uchar>(masVotado)){
+			masVotado = i;
+		}
+	}
+
+	cout << "El pixel del horizonte es: " << masVotado << endl;
+	//Se pinta una cruz en la imagen para indicar el punto mas votado
+	line(final, Point(masVotado-10, module.rows/2-10), Point(masVotado+10, module.rows/2+10), Scalar(0,255,0), 4);
+	line(final, Point(masVotado+10, module.rows/2-10), Point(masVotado-10, module.rows/2+10), Scalar(0,255,0), 4);
 
 
-  imshow( "Original", src );
-  imshow( "Gradiente_X", grad_x_impr );
-  imshow( "Gradiente_Y", grad_y_impr );
-  imshow( "Modulo", module_impr);
-  imshow( "Orientation", orientation_impr);
-  imshow( "Final", final);
+	//Se convierten las matrices para que se puedan mostrar por pantalla
+	grad_x2 = grad_x/2 + 128;
+	grad_y2 = grad_y/2 + 128;
+	orientation2 = orientation/3.1415*128;
+	grad_x2.convertTo(grad_x_impr, CV_8U);
+	grad_y2.convertTo(grad_y_impr, CV_8U);
+	module.convertTo(module_impr, CV_8U);
+	orientation2.convertTo(orientation_impr, CV_8U);
+	//final.convertTo(final, CV_8UC3);
 
-  waitKey(0);
+	imshow( "Original", src );
+	imshow( "Gradiente_X", grad_x_impr );
+	imshow( "Gradiente_Y", grad_y_impr );
+	imshow( "Modulo", module_impr);
+	imshow( "Orientation", orientation_impr);
+	imshow( "Final", final);
 
-  return 0;
-  }
+	waitKey(0);
 
+	return 0;
+}
 
 
 
-//Para la parte opcional:
-//Metodo indirecto: Canny, HoughLines para sacar las rectas que aproximan los contornos y luego que?
