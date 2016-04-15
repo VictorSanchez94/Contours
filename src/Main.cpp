@@ -8,22 +8,44 @@
 using namespace cv;
 using namespace std;
 
+double cross(Point v1,Point v2){
+    return v1.x*v2.y - v1.y*v2.x;
+}
+
+bool intersection(Point a1, Point a2, Point b1, Point b2, Point & intPnt){
+    Point p = a1;
+    Point q = b1;
+    Point r(a2-a1);
+    Point s(b2-b1);
+
+    if(cross(r,s) == 0) {return false;}
+
+    double t = cross(q-p,s)/cross(r,s);
+
+    intPnt = p + t*r;
+    return true;
+}
+
 int main( int argc, char** argv )
 {
+	Point r;
+	bool prueba = intersection(Point(0,0), Point(10,0), Point(5,5), Point(5,-5), r);
+	cout << r << endl;
 
 	Mat src, grad_x, grad_y, module, orientation;
 	Mat grad_y2, grad_x2, orientation2, final;
 	Mat grad_x_impr, grad_y_impr, module_impr, orientation_impr;
 
 
-	src = imread( argv[1], 0 );
+	src = imread( "Data/pasillo1.pgm", 0 );
 	if( !src.data )
 	{ return -1; }
 
 	src.copyTo(final);
 	cvtColor(final, final, CV_GRAY2BGR);
 
-	Mat horizont = Mat::zeros(1,src.cols, CV_8U);
+	//Mat horizont = Mat::zeros(1,src.cols, CV_16S);
+	vector<int> horizont(src.cols);
 	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
 
 	//Gradiente X
@@ -39,30 +61,32 @@ int main( int argc, char** argv )
 	//Orientacion
 	phase(grad_x, grad_y, orientation);
 
+	line(final, Point(0,module.rows/2), Point(module.cols-1,module.rows/2), Scalar(0,255,0));
+
 
 	/*Metodo directo. Se comprueban todos los puntos de la imagen y si su modulo es mayor
 	 * que un umbral, se crea su recta con su orientacion para intersectar con la linea del
 	 * horizonte.
 	 */
-	int umbral = 95;
-	float err = 0.1;
+	int umbral = 150;
+	float err = 0.01;
 	for(int i=0; i<module.rows; i++){
 		for(int j=0; j<module.cols; j++){
 			double mod = module.at<double>(i,j);
 			double orient = orientation.at<double>(i,j);
 			if(mod>umbral){
 				//Filtro para eliminar lineas verticales y horizontales
-				/*if((!(orient<(M_PI/2)+err) || !(orient>(M_PI/2)-err)) &&      //PI/2
+				if((!(orient<(M_PI/2)+err) || !(orient>(M_PI/2)-err)) &&      //PI/2
 						(!(orient<(3*M_PI/2)+err) || !(orient>(3*M_PI/2)-err)) &&	//3*PI/2
 						(!(orient<(M_PI)+err) || !(orient>(M_PI)-err)) &&			//PI
 						(orient>0+err)	&& (orient<(2*M_PI)-err)		 			//0 y 2*PI (por separado)
-				){*/
+				){
 					//double pendiente = tan(orient);
-					double pendiente = sin(orient)/cos(orient);
+					/*double pendiente = sin(orient)/cos(orient);
 
 					int votado = i+((module.rows/2 - j)/pendiente);
 					if(votado>0 && votado<horizont.cols){
-						horizont.at<uchar>(votado) = horizont.at<uchar>(votado) + 1;
+						horizont.at<int>(votado) = horizont.at<int>(votado) + 1;
 						circle(final, Point(j,i), 1, Scalar(0,0,255));
 						//line(final, Point(j,i), Point(votado,src.rows/2), Scalar(255,255,0));
 						/*imshow( "Original", src );
@@ -70,11 +94,32 @@ int main( int argc, char** argv )
 		    		  	  cvDestroyAllWindows();
 		    		  	  cout << orient*180/M_PI << endl;*/
 
-					}else{
+					/*}else{
 						cout << "Fuera de rango" << " " << pendiente << " " << votado << endl;
 						circle(final, Point(j,i), 1, Scalar(0,0,0));
+					}*/
+
+
+					Point res;
+					int y_pt2 = orient*module.cols - j;
+					Point pt2 = Point(y_pt2, module.cols);
+					bool intersect = intersection(Point(j,i), pt2,
+							Point(0,module.rows/2), Point(module.cols-1,module.rows/2), res);
+
+					if (intersect && res.x < module.cols && res.x > 0) {
+						circle(final, Point(j,i), 1, Scalar(0,0,255));
+						//line(final, res, Point(j,i), Scalar(255,255,0));
+						cout << res << endl;
+						/*imshow( "Original", final );
+						waitKey(0);
+						cvDestroyAllWindows();
+						//cout << orient*180/M_PI << endl;*/
+
+						horizont[res.x] ++;
+					}else{
+						circle(final, Point(j,i), 1, Scalar(0,0,0));
 					}
-				//}
+				}
 
 			}
 		}
@@ -82,9 +127,9 @@ int main( int argc, char** argv )
 
 	//Se mira a ver cual ha sido el punto del horizonte mas votado
 	int masVotado = 0;
-	for (int i=0; i<horizont.cols; i++){
+	for (int i=0; i<horizont.size(); i++){
 		circle(final, Point(i,module.rows/2), 1, Scalar(255,0,0));
-		if(horizont.at<uchar>(i) > horizont.at<uchar>(masVotado)){
+		if(horizont[i] > horizont[masVotado]){
 			masVotado = i;
 		}
 	}
