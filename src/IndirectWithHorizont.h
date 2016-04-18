@@ -1,3 +1,6 @@
+#ifndef __INDIRECTWITHHORIZONT_H__
+#define __INDIRECTWITHHORIZONT_H__
+
 #include "opencv2/imgproc/imgproc.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include <stdlib.h>
@@ -5,20 +8,9 @@
 #include <math.h>
 #include <iostream>
 
-#include"IndirectWithHorizont.h"
-#include"IndirectWithoutHorizont.h"
-
 using namespace cv;
 using namespace std;
 
+int indirectWithHorizont (string path);
 
-int main( int argc, char** argv )
-{
-
-	indirectWithoutHorizont("Data/pasillo1.pgm");
-
-	return 0;
-}
-
-
-
+#endif
