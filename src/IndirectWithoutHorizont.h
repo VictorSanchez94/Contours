@@ -11,6 +11,6 @@
 using namespace cv;
 using namespace std;
 
-int indirectWithoutHorizont (string path);
+int indirectWithoutHorizont ();
 
 #endif

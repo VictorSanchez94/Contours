@@ -43,12 +43,12 @@ int indirectWithHorizont (string path) {
 	/*Metodo indirecto. Canny, HoughLines y se intersecta cada linea con la
 	 * linea del horizonte.
 	 */
-	  Canny(src, final, 50, 200, 3);
-	  src.copyTo(colorfinal);
-	  cvtColor(colorfinal, colorfinal, CV_GRAY2BGR);
-	  vector<Vec4i> lines;
-	  HoughLinesP(final, lines, 1, CV_PI/180, 50, 50, 10 );
-	  for( size_t i = 0; i < lines.size(); i++ ){
+	Canny(src, final, 50, 200, 3);
+	src.copyTo(colorfinal);
+	cvtColor(colorfinal, colorfinal, CV_GRAY2BGR);
+	vector<Vec4i> lines;
+	HoughLinesP(final, lines, 1, CV_PI/180, 50, 50, 10 );
+	for( size_t i = 0; i < lines.size(); i++ ){
 		Vec4i l = lines[i];
 		line( colorfinal, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1, CV_AA);
 		//						x1,    y1			x2,	  y2
@@ -59,8 +59,7 @@ int indirectWithHorizont (string path) {
 			double a = abs(l[2]-l[0]);
 			double b = abs(l[3]-l[1]);
 			double orient = atan(a/b);
-			//cout << "(" << l[0] << ", " << l[1] << ") (" << l[2] << ", " << l[3] << ") " ;
-			//cout << orient << " " ;
+
 			if((!(orient<(M_PI/2)+err) || !(orient>(M_PI/2)-err)) &&      		//PI/2
 					(!(orient<(3*M_PI/2)+err) || !(orient>(3*M_PI/2)-err)) &&	//3*PI/2
 					(!(orient<(M_PI)+err) || !(orient>(M_PI)-err)) &&			//PI
@@ -71,19 +70,10 @@ int indirectWithHorizont (string path) {
 
 				if(votado>0 && votado<horizont.cols){
 					horizont.at<unsigned>(votado)++;
-				}else{
-					cout << "Interseccion fuera de los limites: " << "(" << l[0] << ", " << l[1] << ") (" << l[2] << ", " << l[3] << ")   " << votado << endl;
 				}
-			}else{
-				cout << "Linea filtrada por la orientacion" << endl;
 			}
-
-		}else{
-			cout << "Cuidado, division por 0" << endl;
 		}
-
-
-	  }
+	}
 
 	//Se mira a ver cual ha sido el punto del horizonte mas votado
 	int masVotado = 0;
