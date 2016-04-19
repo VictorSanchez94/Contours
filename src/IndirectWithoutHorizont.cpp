@@ -12,19 +12,20 @@ using namespace std;
 
 int indirectWithoutHorizont (string path) {
 
-	Mat src, grad_x, grad_y, module, orientation, votes;
+	Mat src, grad_x, grad_y, module, orientation;//, votes;
 	Mat grad_y2, grad_x2, orientation2, final, colorfinal;
 	Mat grad_x_impr, grad_y_impr, module_impr, orientation_impr;
-
 
 	src = imread( path, 0 );
 	if( !src.data )
 	{ return -1; }
 
+	//vector<vector<int> > votes;
+
 	src.copyTo(final);
 	cvtColor(final, final, CV_GRAY2BGR);
 
-	Mat horizont = Mat::zeros(1,src.cols, CV_32S);
+	Mat votes = Mat::zeros(src.rows,src.cols, CV_32S);
 
 	GaussianBlur( src, src, Size(3,3), 0, 0, BORDER_DEFAULT );
 
@@ -50,7 +51,7 @@ int indirectWithoutHorizont (string path) {
 	  cvtColor(colorfinal, colorfinal, CV_GRAY2BGR);
 	  vector<Vec4i> lines;
 	  HoughLinesP(final, lines, 1, CV_PI/180, 50, 50, 10 );
-	  votes = Mat::zeros(src.rows,src.cols, CV_8UC1);
+	  //votes = Mat::zeros(src.rows,src.cols, CV_8UC1);
 	  for( size_t i = 0; i < lines.size(); i++ ){
 		Vec4i l = lines[i];
 		line( colorfinal, Point(l[0], l[1]), Point(l[2], l[3]), Scalar(0,0,255), 1, CV_AA);
@@ -69,50 +70,34 @@ int indirectWithoutHorizont (string path) {
 					(!(orient<(M_PI)+err) || !(orient>(M_PI)-err)) &&			//PI
 					(orient>0+err)	&& (orient<(2*M_PI)-err)		 			//0 y 2*PI (por separado)
 			){
-				double votado = l[0] + ((src.rows/2-l[1])*(l[2]-l[0]))/(l[3]-l[1]);
-				line(colorfinal, Point(l[0],l[1]), Point(votado,src.rows/2), Scalar(255,255,0));
 
-				for (int v=0; v<votes.cols; v++) {
-					double vote = l[0] + ((v-l[1])*(l[2]-l[0]))/(l[3]-l[1]);
-					votes.at<unsigned>(v, vote)++;
+				for (int v=0; v<votes.rows; v++) {
+					if((l[3]-l[1]) != 0){
+						double vote = l[0] + ((v-l[1])*(l[2]-l[0]))/(l[3]-l[1]);
+						cout << "Voto: " << v << ", " << vote << endl;
+						if(vote>0 && vote<votes.cols){
+							votes.at<unsigned>(v,vote)++;
+							circle(colorfinal, Point(vote,v), 1, Scalar(255,255,0));
+
+						}
+					}
 				}
 
-				if(votado>0 && votado<horizont.cols){
-					horizont.at<unsigned>(votado)++;
-				}else{
-					cout << "Interseccion fuera de los limites: " << "(" << l[0] << ", " << l[1] << ") (" << l[2] << ", " << l[3] << ")   " << votado << endl;
-				}
-			}else{
+			}/*else{
 				cout << "Linea filtrada por la orientacion" << endl;
-			}
+			}*/
 
-		}else{
+		}/*else{
 			cout << "Cuidado, division por 0" << endl;
-		}
-
+		}*/
 
 	  }
 
-	//Se mira a ver cual ha sido el punto del horizonte mas votado
-	int masVotado = 0;
-	int total2 = 0;
-	for (int i=0; i<horizont.cols; i++){
-		total2 += horizont.at<unsigned>(i);
-		circle(colorfinal, Point(i,module.rows/2), 1, Scalar(255,0,0));
-		if(horizont.at<unsigned>(i) > horizont.at<unsigned>(masVotado)){
-			masVotado = i;
-		}
-	}
-
-	cout << "El punto de fuga es: " << masVotado << endl;
 	double min, max;
 	Point min_loc, max_loc;
 	minMaxLoc(votes, &min, &max, &min_loc, &max_loc);
 	cout << "MAS VOTADO SIN HORIZONTE: " << max_loc.x << "; " << max_loc.y << endl;
 	//Se pinta una cruz en la imagen para indicar el punto mas votado
-	line(colorfinal, Point(masVotado-10, module.rows/2-10), Point(masVotado+10, module.rows/2+10), Scalar(0,255,0), 4);
-	line(colorfinal, Point(masVotado+10, module.rows/2-10), Point(masVotado-10, module.rows/2+10), Scalar(0,255,0), 4);
-
 	line(colorfinal, Point(max_loc.x-10, max_loc.y-10), Point(max_loc.x+10, max_loc.y+10), Scalar(255,0,0), 4);
 	line(colorfinal, Point(max_loc.x+10, max_loc.y-10), Point(max_loc.x-10, max_loc.y+10), Scalar(255,0,0), 4);
 
@@ -132,7 +117,7 @@ int indirectWithoutHorizont (string path) {
 	imshow( "Gradiente_Y", grad_y_impr );
 	imshow( "Modulo", module_impr);
 	imshow( "Orientation", orientation_impr);
-	imshow( "Final", final);
+	imshow( "Contornos", final);
 	imshow( "Final color", colorfinal);
 
 	waitKey(0);

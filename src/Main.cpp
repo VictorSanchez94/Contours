@@ -15,7 +15,7 @@ using namespace std;
 int main( int argc, char** argv )
 {
 
-	indirectWithoutHorizont("Data/pasillo1.pgm");
+	indirectWithoutHorizont("Data/pasillo2.pgm");
 
 	return 0;
 }
